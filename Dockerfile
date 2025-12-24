@@ -16,8 +16,8 @@ FROM golang:1.24-alpine AS backend-builder
 
 WORKDIR /app
 
-# Install build dependencies
-RUN apk add --no-cache git ca-certificates
+# Install build dependencies (required for CGO and SQLite)
+RUN apk add --no-cache git ca-certificates gcc musl-dev
 
 # Copy go mod files and download dependencies
 COPY go.mod go.sum ./
