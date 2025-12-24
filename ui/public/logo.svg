@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Unmatched Uptime Monitoring logo (square)">
+  <g fill="none" stroke="#153A89" stroke-width="24" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="56" y="56" width="400" height="400" rx="72" ry="72"/>
+    <path d="M80 256 L156 256 L196 216 L228 296 L270 168 L310 256 L432 256"/>
+  </g>
+</svg>
