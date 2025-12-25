@@ -10,8 +10,6 @@ services:
     environment:
       - HTTP_PORT=${HTTP_PORT:-8080}
       - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
-      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
       - DB_PATH=/app/data/aeromonitor.db
       # Optional OIDC configuration
       - OIDC_ENABLED=${OIDC_ENABLED:-false}

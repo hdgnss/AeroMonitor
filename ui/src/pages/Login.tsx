@@ -25,9 +25,6 @@ const Login = () => {
                 if (res.data.allow_password_auth) {
                     setPasswordAuthEnabled(true);
                 }
-                if (res.data.allow_password_auth) {
-                    setPasswordAuthEnabled(true);
-                }
                 setBranding({
                     title: res.data.app_title || 'Monitor',
                     logoUrl: res.data.app_logo_url || ''

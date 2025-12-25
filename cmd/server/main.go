@@ -39,7 +39,7 @@ func main() {
 	authHandler := auth.NewAuthHandler(settingsService)
 
 	// Initialize Monitor Engine
-	engine := monitor.NewEngine(database)
+	engine := monitor.NewEngine(database, settingsService)
 	engine.Start()
 	defer engine.Stop()
 
@@ -89,6 +89,10 @@ func main() {
 	api.GET("/health", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
 	})
+
+	// Public Status Routes (requires Bearer Auth if configured)
+	publicGroup := api.Group("/public")
+	engine.RegisterStatusRoutes(publicGroup)
 
 	// Public Push Routes (no auth needed)
 	engine.RegisterPushRoutes(api)

@@ -361,7 +361,7 @@ const MonitorDetail = ({ user }: { user: any }) => {
                             ? `${window.location.origin}/api/push/${currentMonitor.id}`
                             : currentMonitor.target}
                     </p>
-                    {currentMonitor.type === 'push' && (() => {
+                    {user?.role === 'admin' && currentMonitor.type === 'push' && (() => {
                         try {
                             const meta = JSON.parse(currentMonitor.metadata || '{}');
                             if (meta.push_token) {

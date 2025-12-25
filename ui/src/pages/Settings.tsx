@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Bell, User, Globe, Mail, MessageSquare, Users, Send, Monitor, Plus, Trash2, Edit2, X } from 'lucide-react';
+import { Bell, User, Globe, Mail, MessageSquare, Users, Send, Monitor, Plus, Trash2, Edit2, X, Shield, Key } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
 
 interface NotificationChannel {
@@ -59,7 +59,8 @@ const Settings = () => {
         oidc_userinfo_url: '',
         oidc_redirect_url: window.location.origin + '/api/auth/callback',
         app_title: 'Monitor',
-        app_logo_url: ''
+        app_logo_url: '',
+        api_bearer_token: ''
     });
 
     // Modal State
@@ -204,6 +205,54 @@ const Settings = () => {
                             className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium py-2 px-6 rounded-lg transition-colors shadow-lg shadow-primary/40"
                         >
                             Save Changes
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <section className="bg-card border border-border rounded-2xl p-8">
+                <div className="flex items-center gap-4 mb-8">
+                    <div className="bg-emerald-500/10 p-3 rounded-xl text-emerald-500">
+                        <Shield size={24} />
+                    </div>
+                    <div>
+                        <h3 className="text-xl font-bold">API Access</h3>
+                        <p className="text-muted-foreground text-sm">Configure external API access tokens</p>
+                    </div>
+                </div>
+
+                <div className="space-y-4">
+                    <div className="grid gap-2">
+                        <div className="flex items-center gap-2">
+                            <label className="text-sm font-medium text-muted-foreground">API Bearer Token</label>
+                            <Key size={14} className="text-muted-foreground" />
+                        </div>
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                value={settings.api_bearer_token || ''}
+                                onChange={e => updateSetting('api_bearer_token', e.target.value)}
+                                className="bg-background border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none flex-1 font-mono"
+                                placeholder="Enter a secure token for Bearer authentication"
+                            />
+                            <button
+                                onClick={() => updateSetting('api_bearer_token', Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15))}
+                                className="bg-secondary hover:bg-secondary/80 text-secondary-foreground text-sm font-medium px-4 rounded-lg transition-colors"
+                            >
+                                Generate
+                            </button>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            If set, the status API at <code>/api/public/status/:id</code> will require the header <code>Authorization: Bearer &lt;token&gt;</code>.
+                            Leave blank to disable authentication for this endpoint.
+                        </p>
+                    </div>
+                    <div className="mt-4 flex justify-end">
+                        <button
+                            onClick={handleSaveAuth}
+                            className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium py-2 px-6 rounded-lg transition-colors shadow-lg shadow-primary/40"
+                        >
+                            Save API Token
                         </button>
                     </div>
                 </div>

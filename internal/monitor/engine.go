@@ -16,12 +16,14 @@ import (
 	"time"
 
 	"aeromonitor/internal/notification"
+	"aeromonitor/internal/settings"
 
 	"github.com/jmoiron/sqlx"
 )
 
 type Engine struct {
 	db         *sqlx.DB
+	settings   *settings.Service
 	monitors   map[string]*Monitor
 	status     map[string]string // monitorID -> "up"/"down"
 	lastChecks map[string]time.Time
@@ -30,10 +32,11 @@ type Engine struct {
 	cancel     context.CancelFunc
 }
 
-func NewEngine(db *sqlx.DB) *Engine {
+func NewEngine(db *sqlx.DB, s *settings.Service) *Engine {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Engine{
 		db:         db,
+		settings:   s,
 		monitors:   make(map[string]*Monitor),
 		status:     make(map[string]string),
 		lastChecks: make(map[string]time.Time),
@@ -112,7 +115,7 @@ func (e *Engine) runChecks() {
 		} else {
 			e.mu.Lock()
 			lastRun, ok := e.lastChecks[m.ID]
-			now := time.Now()
+			now := time.Now().UTC()
 
 			// Initialize fast check if new
 			shouldRun := false
@@ -140,7 +143,7 @@ func (e *Engine) checkPushTimeout(m Monitor) {
 	if err != nil {
 		isTimeout = true
 	} else {
-		since := time.Since(lastTime)
+		since := time.Now().UTC().Sub(lastTime)
 		if since > (time.Duration(m.Interval)*time.Second + 5*time.Second) {
 			isTimeout = true
 		}
@@ -186,7 +189,7 @@ func (e *Engine) checkMonitor(m Monitor) {
 }
 
 func (e *Engine) checkHTTP(m Monitor) Result {
-	start := time.Now()
+	start := time.Now().UTC()
 	resp, err := http.Get(m.Target)
 	latency := int(time.Since(start).Milliseconds())
 
@@ -218,7 +221,7 @@ func (e *Engine) checkHTTP(m Monitor) Result {
 }
 
 func (e *Engine) checkTCP(m Monitor) Result {
-	start := time.Now()
+	start := time.Now().UTC()
 	conn, err := net.DialTimeout("tcp", m.Target, 5*time.Second)
 	latency := int(time.Since(start).Milliseconds())
 
@@ -247,7 +250,7 @@ func (e *Engine) checkPing(m Monitor) Result {
 	// But to keep it "lightweight" and simple, I'll use a basic TCP check on port 80/443 if no port is specified.
 	// Actually, let's try a system ping command for simplicity in this prototype.
 
-	start := time.Now()
+	start := time.Now().UTC()
 	cmd := exec.Command("ping", "-c", "1", "-t", "5", m.Target)
 	err := cmd.Run()
 	latency := int(time.Since(start).Milliseconds())
@@ -270,7 +273,7 @@ func (e *Engine) checkPing(m Monitor) Result {
 }
 
 func (e *Engine) checkFileUpdate(m Monitor) Result {
-	start := time.Now()
+	start := time.Now().UTC()
 
 	// 1. Parse Metadata for Expected Interval
 	expectedInterval := 15 * time.Minute // Default
@@ -352,7 +355,7 @@ func (e *Engine) checkFileUpdate(m Monitor) Result {
 	latency := int(time.Since(start).Milliseconds())
 
 	// 5. Determine State
-	now := time.Now()
+	now := time.Now().UTC()
 	lastChangedTime := now // Default if new
 	if lastData.LastChanged != "" {
 		if t, err := time.Parse(time.RFC3339, lastData.LastChanged); err == nil {
@@ -371,11 +374,11 @@ func (e *Engine) checkFileUpdate(m Monitor) Result {
 		// File NOT Changed. Check if it's stale
 		// If we don't have a previous record (lastData.CurrentMD5 is empty), we consider it fresh as baseline
 		if lastData.CurrentMD5 != "" {
-			if time.Since(lastChangedTime) > expectedInterval {
+			if now.Sub(lastChangedTime) > expectedInterval {
 				status = "down"
-				message = fmt.Sprintf("File stale! Not updated in %s", time.Since(lastChangedTime).Round(time.Minute))
+				message = fmt.Sprintf("File stale! Not updated in %s", now.Sub(lastChangedTime).Round(time.Minute))
 			} else {
-				message = fmt.Sprintf("File valid. Last update: %s ago", time.Since(lastChangedTime).Round(time.Minute))
+				message = fmt.Sprintf("File valid. Last update: %s ago", now.Sub(lastChangedTime).Round(time.Minute))
 			}
 		} else {
 			message = "New file monitoring started"

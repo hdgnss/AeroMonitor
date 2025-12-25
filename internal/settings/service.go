@@ -23,6 +23,7 @@ const (
 	KeyAdminUser         = "admin_user"
 	KeyAdminPass         = "admin_pass"
 	KeyAdminEmail        = "admin_email"
+	KeyAPIBearerToken    = "api_bearer_token"
 )
 
 // Env Var Mapping
@@ -87,6 +88,13 @@ func (s *Service) loadSettings() {
 				s.cache[settingKey] = envVal
 			}
 		}
+	}
+	// 3. Safety check: If admin user exists but no auth method is enabled, enable password auth
+	if s.cache[KeyAdminUser] != "" && s.cache[KeyAllowPasswordAuth] != "true" && s.cache[KeyOIDCEnabled] != "true" {
+		log.Printf("Admin user exists but no authentication method is enabled. Enabling password authentication by default.")
+		s.cache[KeyAllowPasswordAuth] = "true"
+		// Best effort persist to DB
+		s.db.Exec("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", KeyAllowPasswordAuth, "true")
 	}
 }
 

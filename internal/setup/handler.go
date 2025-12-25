@@ -60,10 +60,11 @@ func (h *Handler) Setup(c echo.Context) error {
 
 	// Save settings
 	updates := map[string]string{
-		settings.KeyAppTitle:   req.SiteName,
-		settings.KeyAdminUser:  req.AdminUser,
-		settings.KeyAdminPass:  string(hashedPassword),
-		settings.KeyAdminEmail: req.AdminEmail,
+		settings.KeyAppTitle:          req.SiteName,
+		settings.KeyAdminUser:         req.AdminUser,
+		settings.KeyAdminPass:         string(hashedPassword),
+		settings.KeyAdminEmail:        req.AdminEmail,
+		settings.KeyAllowPasswordAuth: "true",
 	}
 
 	if err := h.Settings.SetAll(updates); err != nil {

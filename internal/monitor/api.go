@@ -2,12 +2,14 @@ package monitor
 
 import (
 	"aeromonitor/internal/notification"
+	"aeromonitor/internal/settings"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,6 +20,10 @@ func (e *Engine) RegisterPublicMonitorRoutes(api *echo.Group) {
 	api.GET("/monitors", e.listMonitors)
 	api.GET("/monitors/:id", e.getMonitor)
 	api.GET("/monitors/:id/heartbeats", e.getHeartbeats)
+}
+
+func (e *Engine) RegisterStatusRoutes(api *echo.Group) {
+	api.GET("/status/:id", e.getMonitorStatus)
 }
 
 func (e *Engine) RegisterAdminMonitorRoutes(api *echo.Group) {
@@ -330,8 +336,8 @@ func (e *Engine) exportMonitorData(c echo.Context) error {
 	endStr := c.QueryParam("end")
 
 	// Default to last 30 days if not provided
-	start := time.Now().AddDate(0, 0, -30)
-	end := time.Now()
+	start := time.Now().UTC().AddDate(0, 0, -30)
+	end := time.Now().UTC()
 
 	if startStr != "" {
 		if t, err := time.Parse("2006-01-02T15:04", startStr); err == nil {
@@ -415,4 +421,63 @@ func (e *Engine) exportMonitorData(c echo.Context) error {
 	}
 	w.Flush()
 	return nil
+}
+
+func (e *Engine) getMonitorStatus(c echo.Context) error {
+	id := c.Param("id")
+
+	// 1. Check Bearer Token
+	configuredToken := e.settings.Get(settings.KeyAPIBearerToken)
+	if configuredToken != "" {
+		authHeader := c.Request().Header.Get("Authorization")
+		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Missing or invalid authorization header"})
+		}
+		token := strings.TrimPrefix(authHeader, "Bearer ")
+		if token != configuredToken {
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid token"})
+		}
+	}
+
+	// 2. Fetch Latest Heartbeat and Monitor Type
+	var h struct {
+		Type      string    `db:"type"`
+		Status    string    `db:"status"`
+		Latency   int       `db:"latency"`
+		Data      string    `db:"data"`
+		Timestamp time.Time `db:"timestamp"`
+	}
+	err := e.db.Get(&h, `
+		SELECT m.type, h.status, h.latency, COALESCE(h.data, '{}') as data, h.timestamp 
+		FROM heartbeats h
+		JOIN monitors m ON h.monitor_id = m.id
+		WHERE h.monitor_id = ? 
+		ORDER BY h.timestamp DESC LIMIT 1`, id)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "Monitor not found or no data available"})
+	}
+
+	// 3. Prepare Response
+	response := map[string]interface{}{
+		"id":        id,
+		"status":    h.Status,
+		"timestamp": h.Timestamp.Format(time.RFC3339),
+	}
+
+	if h.Status == "up" {
+		if h.Type == string(TypePush) {
+			var jsonData interface{}
+			if err := json.Unmarshal([]byte(h.Data), &jsonData); err == nil {
+				response["data"] = jsonData
+			} else {
+				response["data"] = h.Data
+			}
+		} else {
+			response["data"] = map[string]interface{}{
+				"latency": h.Latency,
+			}
+		}
+	}
+
+	return c.JSON(http.StatusOK, response)
 }

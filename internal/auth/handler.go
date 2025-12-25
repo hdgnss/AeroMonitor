@@ -44,7 +44,7 @@ func (h *AuthHandler) Login(c echo.Context) error {
 	cookie := new(http.Cookie)
 	cookie.Name = "oauth_state"
 	cookie.Value = state
-	cookie.Expires = time.Now().Add(10 * time.Minute)
+	cookie.Expires = time.Now().UTC().Add(10 * time.Minute)
 	cookie.HttpOnly = true
 	cookie.Path = "/"
 	c.SetCookie(cookie)
@@ -91,7 +91,7 @@ func (h *AuthHandler) PasswordLogin(c echo.Context) error {
 	authCookie := new(http.Cookie)
 	authCookie.Name = "auth_token"
 	authCookie.Value = jwt
-	authCookie.Expires = time.Now().Add(24 * time.Hour)
+	authCookie.Expires = time.Now().UTC().Add(24 * time.Hour)
 	authCookie.HttpOnly = true
 	authCookie.Path = "/"
 	c.SetCookie(authCookie)
@@ -144,7 +144,7 @@ func (h *AuthHandler) Callback(c echo.Context) error {
 	authCookie := new(http.Cookie)
 	authCookie.Name = "auth_token"
 	authCookie.Value = jwt
-	authCookie.Expires = time.Now().Add(24 * time.Hour)
+	authCookie.Expires = time.Now().UTC().Add(24 * time.Hour)
 	authCookie.HttpOnly = true
 	authCookie.Path = "/"
 	c.SetCookie(authCookie)
@@ -157,7 +157,7 @@ func (h *AuthHandler) Logout(c echo.Context) error {
 	cookie := new(http.Cookie)
 	cookie.Name = "auth_token"
 	cookie.Value = ""
-	cookie.Expires = time.Now().Add(-1 * time.Hour)
+	cookie.Expires = time.Now().UTC().Add(-1 * time.Hour)
 	cookie.HttpOnly = true
 	cookie.Path = "/"
 	c.SetCookie(cookie)

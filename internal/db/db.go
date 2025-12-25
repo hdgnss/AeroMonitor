@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS settings (
 `
 
 func InitDB(path string) (*sqlx.DB, error) {
-	db, err := sqlx.Connect("sqlite3", path)
+	db, err := sqlx.Connect("sqlite3", path+"?_loc=UTC")
 	if err != nil {
 		return nil, err
 	}

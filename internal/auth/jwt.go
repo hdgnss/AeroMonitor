@@ -30,7 +30,7 @@ func CheckPasswordHash(password, hash string) bool {
 }
 
 func GenerateJWT(userID, name, role, picture string) (string, error) {
-	expirationTime := time.Now().Add(24 * time.Hour)
+	expirationTime := time.Now().UTC().Add(24 * time.Hour)
 	claims := &Claims{
 		UserID:  userID,
 		Name:    name,

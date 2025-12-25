@@ -95,3 +95,31 @@ See `.env.example` for a complete configuration template.
 Send data to your push monitors using simple GET or POST requests:
 `GET http://localhost:8080/api/push/{id}?status=up&msg=OK&cpu=25&mem=60`
 
+## Screenshots
+
+### Dashboard
+![Dashboard](docs/Dashboard.png)
+
+### Monitor Management
+| Basic Info | Notifications |
+| :---: | :---: |
+| ![New Monitor Basic](docs/NewMonitorBasic.png) | ![New Monitor Notifications](docs/NewMonitorNotifications.png) |
+
+### Settings & Notifications
+| General Settings | Notification Channels |
+| :---: | :---: |
+| ![General Settings](docs/GeneralSettings.png) | ![Notifications](docs/Notifications.png) |
+
+| Bark Notification | Email Notification |
+| :---: | :---: |
+| ![Add Bark](docs/AddNotificationBark.png) | ![Add Email](docs/AddNotificationEmail.png) |
+
+### Security & API
+| Authentication | API Access |
+| :---: | :---: |
+| ![Authentication](docs/Authentication.png) | ![API Access](docs/APIAccess.png) |
+
+### Login & Setup
+| Login | Initial Setup |
+| :---: | :---: |
+| ![Login](docs/Login.png) | ![Setup](docs/setup.png) |
