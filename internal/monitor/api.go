@@ -22,6 +22,10 @@ func (e *Engine) RegisterPublicMonitorRoutes(api *echo.Group) {
 	api.GET("/monitors/:id/heartbeats", e.getHeartbeats)
 }
 
+func (e *Engine) RegisterExportRoutes(api *echo.Group) {
+	api.GET("/monitors/:id/export", e.exportMonitorData)
+}
+
 func (e *Engine) RegisterStatusRoutes(api *echo.Group) {
 	api.GET("/status/:id", e.getMonitorStatus)
 }
@@ -40,9 +44,6 @@ func (e *Engine) RegisterAdminMonitorRoutes(api *echo.Group) {
 	api.PUT("/notifications/:id", e.updateOrCreateNotification)
 	api.DELETE("/notifications/:id", e.deleteNotificationChannel)
 	api.POST("/notifications/test", e.testNotification)
-
-	// Export
-	api.GET("/monitors/:id/export", e.exportMonitorData)
 }
 
 func (e *Engine) listNotifications(c echo.Context) error {
@@ -334,6 +335,24 @@ func (e *Engine) exportMonitorData(c echo.Context) error {
 	id := c.Param("id")
 	startStr := c.QueryParam("start")
 	endStr := c.QueryParam("end")
+
+	// Check Bearer Token
+	configuredToken := e.settings.Get(settings.KeyAPIBearerToken)
+	if configuredToken != "" {
+		authHeader := c.Request().Header.Get("Authorization")
+		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+			// Also check for query param "token" for easier browser download
+			queryToken := c.QueryParam("token")
+			if queryToken == "" || queryToken != configuredToken {
+				return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Missing or invalid authorization header/token"})
+			}
+		} else {
+			token := strings.TrimPrefix(authHeader, "Bearer ")
+			if token != configuredToken {
+				return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid token"})
+			}
+		}
+	}
 
 	// Default to last 30 days if not provided
 	start := time.Now().UTC().AddDate(0, 0, -30)

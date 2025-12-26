@@ -1,32 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Line } from 'react-chartjs-2';
-import {
-    Chart as ChartJS,
-    CategoryScale,
-    LinearScale,
-    PointElement,
-    LineElement,
-    Title,
-    Tooltip,
-    Legend,
-    Filler,
-} from 'chart.js';
+import ReactECharts from 'echarts-for-react';
 import { CheckCircle2, XCircle, Zap, ShieldCheck, Clock, Trash2, Activity, Pause, Play, Download } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-
-ChartJS.register(
-    CategoryScale,
-    LinearScale,
-    PointElement,
-    LineElement,
-    Title,
-    Tooltip,
-    Legend,
-    Filler
-);
 
 interface Heartbeat {
     id: number;
@@ -273,41 +251,121 @@ const MonitorDetail = ({ user }: { user: any }) => {
         return ((upCount / heartbeats.length) * 100).toFixed(1);
     };
 
-    const options = {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: { display: false },
-            tooltip: { mode: 'index' as const, intersect: false },
-        },
-        scales: {
-            y: { beginAtZero: true, grid: { color: 'rgba(255, 255, 255, 0.05)' } },
-            x: {
-                grid: { display: false },
-                ticks: {
-                    maxRotation: 0,
-                    autoSkip: true,
-                    maxTicksLimit: 10
+    const renderChart = (title: string, data: any[], color: string, isFill: boolean = true) => {
+        const option = {
+            grid: {
+                top: 40,
+                right: 20,
+                bottom: 80, // Space for dataZoom slider
+                left: 50,
+                containLabel: true
+            },
+            tooltip: {
+                trigger: 'axis',
+                axisPointer: {
+                    type: 'cross',
+                    label: {
+                        backgroundColor: '#6a7985'
+                    }
                 }
             },
-        },
-    };
-
-    const renderChart = (title: string, data: any[], color: string, isFill: boolean = true) => {
-        const chartData = {
-            labels: heartbeats.map(h => new Date(h.timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })).reverse(),
-            datasets: [
+            toolbox: {
+                feature: {
+                    saveAsImage: {}
+                }
+            },
+            xAxis: {
+                type: 'category',
+                boundaryGap: false,
+                data: heartbeats.map(h => {
+                    const d = new Date(h.timestamp);
+                    const yy = d.getFullYear().toString().slice(-2);
+                    const mm = (d.getMonth() + 1).toString().padStart(2, '0');
+                    const dd = d.getDate().toString().padStart(2, '0');
+                    const time = d.toLocaleTimeString('en-GB', { hour12: false }); // HH:mm:ss
+                    return `${yy}-${mm}-${dd}\n${time}`;
+                }).reverse(),
+                axisLabel: {
+                    lineHeight: 14
+                }
+            },
+            yAxis: {
+                type: 'value',
+                scale: true,
+                splitLine: {
+                    show: true,
+                    lineStyle: {
+                        color: 'rgba(0, 0, 0, 0.1)'
+                    }
+                }
+            },
+            dataZoom: [
                 {
-                    label: title,
-                    data: data.reverse(),
-                    borderColor: color,
-                    backgroundColor: isFill ? `${color}1A` : 'transparent',
-                    fill: isFill,
-                    tension: 0.4,
-                    pointRadius: heartbeatDataPoints > 100 ? 0 : 3,
+                    type: 'inside',
+                    start: 0,
+                    end: 100
                 },
+                {
+                    show: true,
+                    type: 'slider',
+                    bottom: 35,
+                    start: 0,
+                    end: 100
+                }
             ],
+            series: [
+                {
+                    name: title,
+                    type: 'line',
+                    data: data.reverse(),
+                    symbol: heartbeatDataPoints > 100 ? 'none' : 'circle', // Optimize for many points
+                    smooth: true,
+                    lineStyle: {
+                        width: 2,
+                        color: color
+                    },
+                    areaStyle: isFill ? {
+                        color: {
+                            type: 'linear',
+                            x: 0,
+                            y: 0,
+                            x2: 0,
+                            y2: 1,
+                            colorStops: [{
+                                offset: 0, color: color // 100% opacity at top (but ECharts handles alpha in color string better, let's use rgba)
+                            }, {
+                                offset: 1, color: 'rgba(0,0,0,0)' // 0% opacity at bottom
+                            }],
+                            global: false
+                        },
+                        opacity: 0.2
+                    } : null,
+                    itemStyle: {
+                        color: color
+                    }
+                }
+            ]
         };
+
+        if (isFill) {
+            // @ts-ignore
+            option.series[0].areaStyle = {
+                color: {
+                    type: 'linear',
+                    x: 0,
+                    y: 0,
+                    x2: 0,
+                    y2: 1,
+                    colorStops: [{
+                        offset: 0, color: color
+                    }, {
+                        offset: 1, color: 'rgba(255, 255, 255, 0)'
+                    }],
+                    global: false
+                },
+                opacity: 0.3
+            };
+        }
 
         return (
             <div key={title} className="bg-card border border-border p-8 rounded-2xl w-full">
@@ -318,7 +376,10 @@ const MonitorDetail = ({ user }: { user: any }) => {
                     </div>
                 </div>
                 <div className="h-72 w-full">
-                    <Line data={chartData} options={options} />
+                    <ReactECharts
+                        option={option}
+                        style={{ height: '100%', width: '100%' }}
+                    />
                 </div>
             </div>
         );
@@ -526,11 +587,25 @@ const MonitorDetail = ({ user }: { user: any }) => {
                 </div>
                 <div className="divide-y divide-border">
                     {heartbeats.slice(0, 15).map((h) => {
-                        let md5Display = '';
+                        let dataDisplay: React.ReactNode = null;
                         try {
                             const d = JSON.parse(h.data || '{}');
-                            // Show full MD5 if available
-                            if (d.current_md5) md5Display = d.current_md5;
+                            if (currentMonitor.type === 'push' && h.status === 'up') {
+                                const entries = Object.entries(d).filter(([k]) => k !== 'ping');
+                                if (entries.length > 0) {
+                                    dataDisplay = (
+                                        <div className="flex gap-2 flex-wrap">
+                                            {entries.map(([k, v]) => (
+                                                <span key={k} className="font-mono text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded border border-border">
+                                                    {k}: {String(v)}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    );
+                                }
+                            } else if (d.current_md5) {
+                                dataDisplay = <span className="font-mono text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded border border-border">{d.current_md5}</span>;
+                            }
                         } catch (e) { }
 
                         return (
@@ -539,7 +614,7 @@ const MonitorDetail = ({ user }: { user: any }) => {
                                     <div className="flex items-center gap-4">
                                         {h.status === 'up' ? <CheckCircle2 className="text-emerald-500" size={18} /> : <XCircle className="text-red-500" size={18} />}
                                         <span className="font-mono text-sm text-muted-foreground">{new Date(h.timestamp).toLocaleString()}</span>
-                                        {md5Display && <span className="font-mono text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded border border-border">{md5Display}</span>}
+                                        {dataDisplay}
                                     </div>
                                     <div className="flex items-center gap-6">
                                         <span className="text-sm font-medium text-foreground">{h.latency}ms</span>

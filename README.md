@@ -1,11 +1,11 @@
 # AeroMonitor
 
-A lightweight, self-hosted monitoring tool inspired by Uptime Kuma, built with Go and React.
+A lightweight, self-hosted monitoring tool built with Go and React.
 
 ## Getting Started
 
 ### Prerequisites
-- [Go](https://golang.org/dl/) (1.21+)
+- [Go](https://golang.org/dl/) (1.24)
 - [Node.js](https://nodejs.org/) (for frontend development)
 - [Docker](https://www.docker.com/) (optional, for containerized deployment)
 
@@ -38,10 +38,8 @@ docker run -d \
   -p 8080:8080 \
   -v aeromonitor-data:/app/data \
   -e JWT_SECRET=your-secret-key \
-  -e ADMIN_USERNAME=admin \
-  -e ADMIN_PASSWORD=admin \
   --name aeromonitor \
-  aeromonitor:latest
+  hdgnss/aeromonitor:latest
 ```
 
 ### Running Locally (Development)
@@ -69,8 +67,6 @@ docker run -d \
 
 - `HTTP_PORT` - Server HTTP port (default: 8080)
 - `JWT_SECRET` - Secret key for JWT token signing (required)
-- `ADMIN_USERNAME` - Admin username (default: admin)
-- `ADMIN_PASSWORD` - Admin password (default: admin)
 - `DB_PATH` - Database file path (default: ./aeromonitor.db)
 - `OIDC_ENABLED` - Enable OIDC authentication (default: false)
 - `OIDC_PROVIDER_URL` - OIDC provider URL
@@ -91,9 +87,28 @@ See `.env.example` for a complete configuration template.
 - **Public Status Pages**: Share monitor status publicly.
 - **Lightweight**: Minimal resource footprint.
 
-## API Usage (Push Monitoring)
+## Supported APIs
+
+### Push API
 Send data to your push monitors using simple GET or POST requests:
-`GET http://localhost:8080/api/push/{id}?status=up&msg=OK&cpu=25&mem=60`
+```bash
+GET http://localhost:8080/api/push/{monitor_id}?status=up&msg=OK&cpu=25&mem=60
+```
+
+### Public Status API
+Get the current status and latest data for a monitor:
+```bash
+GET http://localhost:8080/api/public/status/{monitor_id}
+```
+*Requires `Authorization: Bearer <token>` header if `api_bearer_token` is configured.*
+
+### Data Export API
+Export monitor history as CSV:
+```bash
+GET http://localhost:8080/api/monitors/{monitor_id}/export?start=2025-12-19T04:15:00Z&end=2025-12-26T04:15:00Z
+```
+*   **Auth**: Requires `Authorization: Bearer <token>` header or `?token=<token>` query parameter if `api_bearer_token` is configured.
+*   **Params**: `start` and `end` (ISO 8601 or RFC3339 format). Defaults to last 30 days if omitted.
 
 ## Screenshots
 

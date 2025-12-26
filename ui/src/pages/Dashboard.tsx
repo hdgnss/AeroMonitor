@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Plus, CheckCircle2, Clock, Activity, X, Bell, XCircle, Pause } from 'lucide-react';
+import { Plus, CheckCircle2, Activity, X, Bell, XCircle, Pause } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useToast } from '../contexts/ToastContext';
 import { clsx, type ClassValue } from 'clsx';
@@ -200,7 +200,6 @@ const Dashboard = ({ user }: { user: any }) => {
                                                 <div className="flex justify-between items-start">
                                                     <div className="space-y-1">
                                                         <h3 className="font-semibold leading-none tracking-tight">{monitor.name}</h3>
-                                                        <p className="text-xs text-muted-foreground truncate max-w-[200px]">{monitor.target}</p>
                                                     </div>
                                                     <div className={cn(
                                                         "px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider",
@@ -217,11 +216,11 @@ const Dashboard = ({ user }: { user: any }) => {
                                                 <div className="flex items-center justify-between pt-4">
                                                     <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                                                         <Activity className="h-4 w-4" />
-                                                        <span>{monitor.type}</span>
+                                                        <span>{monitor.type === 'file_update' ? 'file' : monitor.type}</span>
                                                     </div>
                                                     <div className="flex items-center space-x-2 text-sm">
-                                                        <Clock className="h-4 w-4 text-muted-foreground" />
-                                                        <span className="font-mono">{monitor.latency || 0}ms</span>
+                                                        <span className="text-muted-foreground">Uptime</span>
+                                                        <span className="font-mono">{Math.round(monitor.uptime)}%</span>
                                                     </div>
                                                 </div>
                                             </div>

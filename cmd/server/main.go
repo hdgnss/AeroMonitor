@@ -97,6 +97,9 @@ func main() {
 	// Public Push Routes (no auth needed)
 	engine.RegisterPushRoutes(api)
 
+	// Public Export Routes
+	engine.RegisterExportRoutes(api)
+
 	// Protected API Routes
 	protected := api.Group("")
 	protected.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
