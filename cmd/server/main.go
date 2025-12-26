@@ -24,7 +24,11 @@ func main() {
 	}
 
 	// Initialize Database
-	database, err := db.InitDB("aeromonitor.db")
+	dbPath := os.Getenv("DB_PATH")
+	if dbPath == "" {
+		dbPath = "aeromonitor.db"
+	}
+	database, err := db.InitDB(dbPath)
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
