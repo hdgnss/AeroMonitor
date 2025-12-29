@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"aeromonitor/internal/auth"
+
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
@@ -337,21 +339,49 @@ func (e *Engine) exportMonitorData(c echo.Context) error {
 	endStr := c.QueryParam("end")
 
 	// Check Bearer Token
+	// Check Bearer Token or Admin Session
 	configuredToken := e.settings.Get(settings.KeyAPIBearerToken)
+	authorized := false
+
 	if configuredToken != "" {
 		authHeader := c.Request().Header.Get("Authorization")
-		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
-			// Also check for query param "token" for easier browser download
-			queryToken := c.QueryParam("token")
-			if queryToken == "" || queryToken != configuredToken {
-				return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Missing or invalid authorization header/token"})
-			}
-		} else {
+		// Check for Bearer Token
+		if authHeader != "" && strings.HasPrefix(authHeader, "Bearer ") {
 			token := strings.TrimPrefix(authHeader, "Bearer ")
-			if token != configuredToken {
-				return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid token"})
+			if token == configuredToken {
+				authorized = true
 			}
 		}
+
+		// Check for query param "token"
+		if !authorized {
+			queryToken := c.QueryParam("token")
+			if queryToken != "" && queryToken == configuredToken {
+				authorized = true
+			}
+		}
+	} else {
+		// If no token is configured, we might assume it's open or requires session?
+		// The original logic seemed to imply open if no token configured?
+		// Let's look at original logic:
+		// "if configuredToken != "" { ... check ... }". If empty, it proceeded.
+		// So we default authorized=true if no token configured.
+		authorized = true
+	}
+
+	// If still not authorized (because token configured but missing/invalid), check for Admin Session
+	if !authorized {
+		cookie, err := c.Cookie("auth_token")
+		if err == nil {
+			claims, err := auth.ValidateJWT(cookie.Value)
+			if err == nil && claims.Role == "admin" {
+				authorized = true
+			}
+		}
+	}
+
+	if !authorized {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Missing or invalid authorization header/token or admin session"})
 	}
 
 	// Default to last 30 days if not provided

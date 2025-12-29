@@ -27,6 +27,7 @@ type Engine struct {
 	monitors   map[string]*Monitor
 	status     map[string]string // monitorID -> "up"/"down"
 	lastChecks map[string]time.Time
+	httpClient *http.Client
 	mu         sync.RWMutex
 	ctx        context.Context
 	cancel     context.CancelFunc
@@ -40,8 +41,11 @@ func NewEngine(db *sqlx.DB, s *settings.Service) *Engine {
 		monitors:   make(map[string]*Monitor),
 		status:     make(map[string]string),
 		lastChecks: make(map[string]time.Time),
-		ctx:        ctx,
-		cancel:     cancel,
+		httpClient: &http.Client{
+			Timeout: 30 * time.Second,
+		},
+		ctx:    ctx,
+		cancel: cancel,
 	}
 }
 
@@ -190,7 +194,7 @@ func (e *Engine) checkMonitor(m Monitor) {
 
 func (e *Engine) checkHTTP(m Monitor) Result {
 	start := time.Now().UTC()
-	resp, err := http.Get(m.Target)
+	resp, err := e.httpClient.Get(m.Target)
 	latency := int(time.Since(start).Milliseconds())
 
 	if err != nil {
@@ -321,7 +325,7 @@ func (e *Engine) checkFileUpdate(m Monitor) Result {
 		}
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := e.httpClient.Do(req)
 	if err != nil {
 		return Result{
 			MonitorID: m.ID,
