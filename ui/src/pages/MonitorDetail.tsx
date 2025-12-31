@@ -251,12 +251,23 @@ const MonitorDetail = ({ user }: { user: any }) => {
         return ((upCount / heartbeats.length) * 100).toFixed(1);
     };
 
-    const renderChart = (title: string, data: any[], color: string, isFill: boolean = true) => {
+    const renderChart = (title: string, data: any[] | { name: string, data: any[] }[], color: string, isFill: boolean = true) => {
+        // Determine single or multi series
+        const isMultiSeries = data.length > 0 && typeof data[0] === 'object' && data[0] !== null && 'data' in data[0];
+
+        const seriesList = isMultiSeries
+            ? (data as { name: string, data: any[] }[]).map((s, idx) => ({
+                name: s.name,
+                data: [...s.data].reverse(),
+                color: colors[(colors.indexOf(color) + idx) % colors.length]
+            }))
+            : [{ name: title, data: [...(data as any[])].reverse(), color: color }];
+
         const option = {
             grid: {
                 top: 40,
-                right: 20,
-                bottom: 80, // Space for dataZoom slider
+                right: 50,
+                bottom: 80,
                 left: 50,
                 containLabel: true
             },
@@ -264,15 +275,11 @@ const MonitorDetail = ({ user }: { user: any }) => {
                 trigger: 'axis',
                 axisPointer: {
                     type: 'cross',
-                    label: {
-                        backgroundColor: '#6a7985'
-                    }
+                    label: { backgroundColor: '#6a7985' }
                 }
             },
             toolbox: {
-                feature: {
-                    saveAsImage: {}
-                }
+                feature: { saveAsImage: {} }
             },
             xAxis: {
                 type: 'category',
@@ -282,85 +289,68 @@ const MonitorDetail = ({ user }: { user: any }) => {
                     const yy = d.getFullYear().toString().slice(-2);
                     const mm = (d.getMonth() + 1).toString().padStart(2, '0');
                     const dd = d.getDate().toString().padStart(2, '0');
-                    const time = d.toLocaleTimeString('en-GB', { hour12: false }); // HH:mm:ss
+                    const time = d.toLocaleTimeString('en-GB', { hour12: false });
                     return `${yy}-${mm}-${dd}\n${time}`;
                 }).reverse(),
-                axisLabel: {
-                    lineHeight: 14
-                }
+                axisLabel: { lineHeight: 14 }
             },
             yAxis: {
                 type: 'value',
                 scale: true,
                 splitLine: {
                     show: true,
-                    lineStyle: {
-                        color: 'rgba(0, 0, 0, 0.1)'
-                    }
+                    lineStyle: { color: 'rgba(0, 0, 0, 0.1)' }
                 }
             },
             dataZoom: [
-                {
-                    type: 'inside',
-                    start: 0,
-                    end: 100
-                },
-                {
-                    show: true,
-                    type: 'slider',
-                    bottom: 35,
-                    start: 0,
-                    end: 100
-                }
+                { type: 'inside', start: 0, end: 100 },
+                { show: true, type: 'slider', bottom: 35, start: 0, end: 100 }
             ],
-            series: [
-                {
-                    name: title,
-                    type: 'line',
-                    data: data.reverse(),
-                    symbol: heartbeatDataPoints > 100 ? 'none' : 'circle', // Optimize for many points
-                    smooth: true,
-                    lineStyle: {
-                        width: 2,
-                        color: color
+            legend: {
+                show: isMultiSeries,
+                top: 0
+            },
+            series: seriesList.map(s => ({
+                name: s.name,
+                type: 'line',
+                data: s.data,
+                symbol: heartbeatDataPoints > 100 ? 'none' : 'circle',
+                smooth: true,
+                lineStyle: { width: 2, color: s.color },
+                areaStyle: (isFill && !isMultiSeries) ? {
+                    color: {
+                        type: 'linear',
+                        x: 0, y: 0, x2: 0, y2: 1,
+                        colorStops: [
+                            { offset: 0, color: s.color },
+                            { offset: 1, color: 'rgba(0,0,0,0)' }
+                        ],
+                        global: false
                     },
-                    areaStyle: isFill ? {
-                        color: {
-                            type: 'linear',
-                            x: 0,
-                            y: 0,
-                            x2: 0,
-                            y2: 1,
-                            colorStops: [{
-                                offset: 0, color: color // 100% opacity at top (but ECharts handles alpha in color string better, let's use rgba)
-                            }, {
-                                offset: 1, color: 'rgba(0,0,0,0)' // 0% opacity at bottom
-                            }],
-                            global: false
-                        },
-                        opacity: 0.2
-                    } : null,
-                    itemStyle: {
-                        color: color
+                    opacity: 0.2
+                } : null,
+                itemStyle: { color: s.color },
+                markLine: {
+                    symbol: 'none',
+                    data: [
+                        { type: 'average', name: 'Average' }
+                    ],
+                    lineStyle: {
+                        color: color,
+                        type: 'dashed',
+                        opacity: 0.7
                     }
                 }
-            ]
+            }))
         };
 
-        if (isFill) {
+        if (isFill && !isMultiSeries) {
             // @ts-ignore
             option.series[0].areaStyle = {
                 color: {
                     type: 'linear',
-                    x: 0,
-                    y: 0,
-                    x2: 0,
-                    y2: 1,
-                    colorStops: [{
-                        offset: 0, color: color
-                    }, {
-                        offset: 1, color: 'rgba(255, 255, 255, 0)'
-                    }],
+                    x: 0, y: 0, x2: 0, y2: 1,
+                    colorStops: [{ offset: 0, color: color }, { offset: 1, color: 'rgba(255, 255, 255, 0)' }],
                     global: false
                 },
                 opacity: 0.3
@@ -554,6 +544,86 @@ const MonitorDetail = ({ user }: { user: any }) => {
 
                 {/* Individual charts for push data */}
                 {Array.from(customKeys).filter(k => k !== 'ping').map((key, idx) => {
+                    // Check if this key contains array data (grouped data like 'models')
+                    const sampleData = heartbeats.find(h => {
+                        try {
+                            const d = JSON.parse(h.data || '{}');
+                            return Array.isArray(d[key]) && d[key].length > 0;
+                        } catch (e) { return false; }
+                    });
+
+                    if (sampleData) {
+                        // Handle Grouped Data (Array of Objects)
+                        let subKeys = new Set<string>();
+                        let nameField = 'id';
+                        try {
+                            const d = JSON.parse(sampleData.data || '{}');
+                            const arr = d[key];
+                            if (arr && arr.length > 0) {
+                                Object.keys(arr[0]).forEach(k => {
+                                    if (typeof arr[0][k] === 'number') subKeys.add(k);
+                                    if (k === 'model' || k === 'name' || k === 'id') nameField = k;
+                                });
+                            }
+                        } catch (e) { }
+
+                        // Render a chart for each numeric sub-key
+                        return Array.from(subKeys).map((subKey, subIdx) => {
+                            const groupedData = new Map<string, (number | null)[]>(); // modelId -> value[]
+                            const distinctModels = new Set<string>();
+
+                            heartbeats.forEach(h => {
+                                try {
+                                    const d = JSON.parse(h.data || '{}');
+                                    if (Array.isArray(d[key])) {
+                                        d[key].forEach((item: any) => {
+                                            if (item[nameField]) distinctModels.add(String(item[nameField]));
+                                        });
+                                    }
+                                } catch (e) { }
+                            });
+
+                            Array.from(distinctModels).sort().forEach(mId => {
+                                groupedData.set(mId, []);
+                            });
+
+                            heartbeats.forEach(h => {
+                                const currentStepValues = new Map<string, number>();
+                                if (h.status === 'up') {
+                                    try {
+                                        const d = JSON.parse(h.data || '{}');
+                                        if (Array.isArray(d[key])) {
+                                            d[key].forEach((item: any) => {
+                                                const mId = String(item[nameField]);
+                                                const val = item[subKey] !== undefined ? parseFloat(item[subKey]) : null;
+                                                if (val !== null && !isNaN(val)) {
+                                                    currentStepValues.set(mId, val);
+                                                }
+                                            });
+                                        }
+                                    } catch (e) { }
+                                }
+                                groupedData.forEach((arr, mId) => {
+                                    arr.push(currentStepValues.has(mId) ? currentStepValues.get(mId)! : null);
+                                });
+                            });
+
+                            const finalSeries = Array.from(groupedData.entries()).map(([mId, data]) => ({
+                                name: mId,
+                                data: data
+                            }));
+
+                            if (finalSeries.length === 0) return null;
+
+                            return renderChart(
+                                `${key.charAt(0).toUpperCase() + key.slice(1)} - ${subKey}`,
+                                finalSeries,
+                                colors[subIdx % colors.length],
+                                false
+                            );
+                        });
+                    }
+
                     const dataPoints = heartbeats.map(h => {
                         if (h.status !== 'up') return null;
                         try {
@@ -562,7 +632,9 @@ const MonitorDetail = ({ user }: { user: any }) => {
                                 // Use first 4 hex chars as integer value for charting
                                 return parseInt(data[key].substring(0, 4), 16);
                             }
-                            return data[key] !== undefined ? parseFloat(data[key]) : null;
+                            const val = data[key] !== undefined ? parseFloat(data[key]) : null;
+                            if (val === null || isNaN(val)) return null;
+                            return val;
                         } catch (e) { return null; }
                     });
 
@@ -572,6 +644,8 @@ const MonitorDetail = ({ user }: { user: any }) => {
                     } else if (key === 'last_changed') {
                         return null; // Don't chart timestamp
                     }
+
+                    if (dataPoints.every(p => p === null)) return null;
 
                     return renderChart(
                         chartLabel,
@@ -597,7 +671,7 @@ const MonitorDetail = ({ user }: { user: any }) => {
                                         <div className="flex gap-2 flex-wrap">
                                             {entries.map(([k, v]) => (
                                                 <span key={k} className="font-mono text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded border border-border">
-                                                    {k}: {String(v)}
+                                                    {k}: {typeof v === 'object' ? JSON.stringify(v) : String(v)}
                                                 </span>
                                             ))}
                                         </div>

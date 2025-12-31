@@ -40,6 +40,34 @@ func (e *Engine) handlePush(c echo.Context) error {
 
 	// Collect all other query parameters as custom data
 	data := make(map[string]interface{})
+
+	// Parse JSON body if Content-Type is application/json
+	if c.Request().Header.Get("Content-Type") == "application/json" {
+		var bodyData map[string]interface{}
+		if err := json.NewDecoder(c.Request().Body).Decode(&bodyData); err == nil {
+			for k, v := range bodyData {
+				data[k] = v
+			}
+			// Extract standard fields from JSON if not in Query
+			if status == "" {
+				if s, ok := bodyData["status"].(string); ok {
+					status = s
+				}
+			}
+			if msg == "" {
+				if m, ok := bodyData["msg"].(string); ok {
+					msg = m
+				}
+			}
+		} else {
+			fmt.Printf("Error decoding JSON body: %v\n", err)
+		}
+	}
+
+	if status == "" {
+		status = "up"
+	}
+
 	params := c.QueryParams()
 	for k, v := range params {
 		if k == "status" || k == "msg" {
@@ -56,6 +84,9 @@ func (e *Engine) handlePush(c echo.Context) error {
 	var latency int
 	if p := c.QueryParam("ping"); p != "" {
 		fmt.Sscanf(p, "%d", &latency)
+	} else if l, ok := data["ping"].(float64); ok {
+		// Also check JSON for ping/latency (often numeric in JSON)
+		latency = int(l)
 	}
 
 	// Save the heartbeat
