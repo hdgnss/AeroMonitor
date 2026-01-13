@@ -245,6 +245,16 @@ const MonitorDetail = ({ user }: { user: any }) => {
         );
     };
 
+    // Helper function to check if user has monitor admin claim
+    const hasMonitorAdminAccess = () => {
+        if (!user) return false;
+        // Check if user is admin role
+        if (user.role === 'admin') return true;
+        // Check if user has monitor.role === "admin" custom claim
+        if (user.monitor && user.monitor.role === 'admin') return true;
+        return false;
+    };
+
     const calculateUptime = () => {
         if (heartbeats.length === 0) return "100.0";
         const upCount = heartbeats.filter(h => h.status === 'up').length;
@@ -428,11 +438,13 @@ const MonitorDetail = ({ user }: { user: any }) => {
                     })()}
                 </div>
                 <div className="flex gap-2">
+                    {hasMonitorAdminAccess() && (
+                        <button onClick={() => setIsExportModalOpen(true)} className="bg-secondary hover:bg-secondary/80 text-secondary-foreground px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2">
+                            <Download size={16} /> Export
+                        </button>
+                    )}
                     {user?.role === 'admin' && (
                         <>
-                            <button onClick={() => setIsExportModalOpen(true)} className="bg-secondary hover:bg-secondary/80 text-secondary-foreground px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2">
-                                <Download size={16} /> Export
-                            </button>
                             <button onClick={handleEditClick} className="bg-secondary hover:bg-secondary/80 text-secondary-foreground px-4 py-2 rounded-lg font-medium transition-colors">Edit</button>
                             {currentMonitor.paused ? (
                                 <button

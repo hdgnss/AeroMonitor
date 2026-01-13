@@ -369,13 +369,20 @@ func (e *Engine) exportMonitorData(c echo.Context) error {
 		authorized = true
 	}
 
-	// If still not authorized (because token configured but missing/invalid), check for Admin Session
+	// If still not authorized (because token configured but missing/invalid), check for Admin Session or Monitor Claim
 	if !authorized {
 		cookie, err := c.Cookie("auth_token")
 		if err == nil {
 			claims, err := auth.ValidateJWT(cookie.Value)
-			if err == nil && claims.Role == "admin" {
-				authorized = true
+			if err == nil {
+				// Check if user is admin OR has monitor.role == "admin"
+				if claims.Role == "admin" {
+					authorized = true
+				} else if claims.Monitor != nil {
+					if role, ok := claims.Monitor["role"].(string); ok && role == "admin" {
+						authorized = true
+					}
+				}
 			}
 		}
 	}

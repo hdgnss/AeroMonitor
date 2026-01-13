@@ -83,7 +83,9 @@ func (h *AuthHandler) PasswordLogin(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid credentials"})
 	}
 
-	jwt, err := GenerateJWT(adminUser, "Administrator", "admin", "")
+	// Grant monitor admin claim to password-authenticated admins automatically
+	monitorClaim := map[string]interface{}{"role": "admin"}
+	jwt, err := GenerateJWT(adminUser, "Administrator", "admin", "", monitorClaim)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to generate token"})
 	}
@@ -135,7 +137,7 @@ func (h *AuthHandler) Callback(c echo.Context) error {
 		}
 	}
 
-	jwt, err := GenerateJWT(userInfo.Email, userInfo.Name, role, userInfo.Picture)
+	jwt, err := GenerateJWT(userInfo.Email, userInfo.Name, role, userInfo.Picture, userInfo.Monitor)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to generate JWT")
 	}
@@ -176,12 +178,19 @@ func (h *AuthHandler) GetUser(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid token"})
 	}
 
-	return c.JSON(http.StatusOK, map[string]string{
+	response := map[string]interface{}{
 		"id":           claims.UserID,
 		"name":         claims.Name,
-		"display_name": claims.Name, // Explicitly provide as display_name for clarity
+		"display_name": claims.Name,
 		"role":         claims.Role,
 		"email":        claims.UserID,
 		"picture":      claims.Picture,
-	})
+	}
+
+	// Include monitor claim if present
+	if claims.Monitor != nil {
+		response["monitor"] = claims.Monitor
+	}
+
+	return c.JSON(http.StatusOK, response)
 }

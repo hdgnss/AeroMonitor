@@ -12,10 +12,11 @@ import (
 var jwtKey = []byte("your_secret_key") // In production, use an environment variable
 
 type Claims struct {
-	UserID  string `json:"user_id"`
-	Name    string `json:"name"`
-	Role    string `json:"role"`
-	Picture string `json:"picture"`
+	UserID  string                 `json:"user_id"`
+	Name    string                 `json:"name"`
+	Role    string                 `json:"role"`
+	Picture string                 `json:"picture"`
+	Monitor map[string]interface{} `json:"monitor,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -29,13 +30,14 @@ func CheckPasswordHash(password, hash string) bool {
 	return err == nil
 }
 
-func GenerateJWT(userID, name, role, picture string) (string, error) {
+func GenerateJWT(userID, name, role, picture string, monitor map[string]interface{}) (string, error) {
 	expirationTime := time.Now().UTC().Add(24 * time.Hour)
 	claims := &Claims{
 		UserID:  userID,
 		Name:    name,
 		Role:    role,
 		Picture: picture,
+		Monitor: monitor,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
 		},

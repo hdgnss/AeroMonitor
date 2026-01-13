@@ -37,11 +37,12 @@ func (p *OIDCProvider) Exchange(code string) (*oauth2.Token, error) {
 }
 
 type UserInfo struct {
-	Sub     string   `json:"sub"`
-	Name    string   `json:"name"`
-	Email   string   `json:"email"`
-	Picture string   `json:"picture"`
-	Groups  []string `json:"groups"`
+	Sub     string                 `json:"sub"`
+	Name    string                 `json:"name"`
+	Email   string                 `json:"email"`
+	Picture string                 `json:"picture"`
+	Groups  []string               `json:"groups"`
+	Monitor map[string]interface{} `json:"monitor"`
 }
 
 func (p *OIDCProvider) GetUserInfo(token *oauth2.Token) (*UserInfo, error) {
