@@ -148,32 +148,90 @@ type MonitorListItem struct {
 }
 
 func (e *Engine) listMonitors(c echo.Context) error {
+	// Query 1: Fetch all monitors
 	var monitors []Monitor
 	err := e.db.Select(&monitors, "SELECT * FROM monitors")
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
+	// Query 2: Fetch latest status and latency for all monitors in a single query
+	var latestHeartbeats []struct {
+		MonitorID string `db:"monitor_id"`
+		Status    string `db:"status"`
+		Latency   int    `db:"latency"`
+	}
+	err = e.db.Select(&latestHeartbeats, `
+		SELECT h1.monitor_id, h1.status, h1.latency
+		FROM heartbeats h1
+		INNER JOIN (
+			SELECT monitor_id, MAX(timestamp) as max_timestamp
+			FROM heartbeats
+			GROUP BY monitor_id
+		) h2 ON h1.monitor_id = h2.monitor_id AND h1.timestamp = h2.max_timestamp
+	`)
+	if err != nil {
+		log.Printf("[API WARN] Failed to fetch latest heartbeats: %v", err)
+	}
+
+	// Query 3: Calculate 24h uptime for all monitors in a single query
+	var uptimeStats []struct {
+		MonitorID  string `db:"monitor_id"`
+		TotalCount int    `db:"total_count"`
+		UpCount    int    `db:"up_count"`
+	}
+	err = e.db.Select(&uptimeStats, `
+		SELECT 
+			monitor_id,
+			COUNT(*) as total_count,
+			SUM(CASE WHEN status = 'up' THEN 1 ELSE 0 END) as up_count
+		FROM heartbeats
+		WHERE timestamp > DATETIME('now', '-24 hours')
+		GROUP BY monitor_id
+	`)
+	if err != nil {
+		log.Printf("[API WARN] Failed to fetch uptime stats: %v", err)
+	}
+
+	// Build hash maps for O(1) lookup
+	statusMap := make(map[string]struct {
+		Status  string
+		Latency int
+	})
+	for _, h := range latestHeartbeats {
+		statusMap[h.MonitorID] = struct {
+			Status  string
+			Latency int
+		}{h.Status, h.Latency}
+	}
+
+	uptimeMap := make(map[string]struct {
+		TotalCount int
+		UpCount    int
+	})
+	for _, u := range uptimeStats {
+		uptimeMap[u.MonitorID] = struct {
+			TotalCount int
+			UpCount    int
+		}{u.TotalCount, u.UpCount}
+	}
+
+	// Combine data for response
 	var list []MonitorListItem
 	for _, m := range monitors {
-		var status string
-		var latency int
-		var upCount, totalCount int
-
-		e.db.Get(&status, "SELECT status FROM heartbeats WHERE monitor_id = ? ORDER BY timestamp DESC LIMIT 1", m.ID)
-		e.db.Get(&latency, "SELECT latency FROM heartbeats WHERE monitor_id = ? ORDER BY timestamp DESC LIMIT 1", m.ID)
-
-		// 24h uptime
-		e.db.Get(&totalCount, "SELECT COUNT(*) FROM heartbeats WHERE monitor_id = ? AND timestamp > DATETIME('now', '-24 hours')", m.ID)
-		e.db.Get(&upCount, "SELECT COUNT(*) FROM heartbeats WHERE monitor_id = ? AND status = 'up' AND timestamp > DATETIME('now', '-24 hours')", m.ID)
-
+		status := "unknown"
+		latency := 0
 		uptime := 100.0
-		if totalCount > 0 {
-			uptime = (float64(upCount) / float64(totalCount)) * 100
+
+		// Get status and latency from map
+		if s, ok := statusMap[m.ID]; ok {
+			status = s.Status
+			latency = s.Latency
 		}
 
-		if status == "" {
-			status = "unknown"
+		// Calculate uptime from map
+		if u, ok := uptimeMap[m.ID]; ok && u.TotalCount > 0 {
+			uptime = (float64(u.UpCount) / float64(u.TotalCount)) * 100
 		}
 
 		list = append(list, MonitorListItem{
